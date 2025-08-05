@@ -6,76 +6,48 @@ const dotenv = require("dotenv");
 const { Server } = require("socket.io");
 const path = require("path");
 
-// Load .env
 dotenv.config();
 
 const app = express();
+
+// ✅ Allow all origins (CORS)
+app.use(cors());
 app.use(express.json());
-
-// ✅ CORS SETUP — Bulletproof
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://chatiepost.netlify.app",
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("❌ CORS blocked origin:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-}));
-
-// ✅ Allow preflight OPTIONS requests (for file upload / complex requests)
-app.options("*", cors());
 
 // ✅ MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Error:", err));
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB error:", err));
 
-// ✅ Serve uploaded image files (if storing in local uploads folder)
+// ✅ Static uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Routes
+const userRoutes = require("./routes/userRoutes");
+const messageRoutes = require("./routes/messageRoutes");
 const postRoutes = require("./routes/posts");
+
+app.use("/api/users", userRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/posts", postRoutes);
 
-// You can also add userRoutes & messageRoutes here if needed
-// const userRoutes = require("./routes/userRoutes");
-// const messageRoutes = require("./routes/messageRoutes");
-// app.use("/api/users", userRoutes);
-// app.use("/api/messages", messageRoutes);
-
-// ✅ Default route
+// ✅ Default test route
 app.get("/", (req, res) => {
-  res.send("✅ Chat server is running");
+  res.send("Server is running 🚀");
 });
 
-// ✅ Handle 404 for unknown API routes
-app.use((req, res) => {
-  res.status(404).json({ error: "❌ API endpoint not found" });
-});
-
-// ✅ Create HTTP server and Socket.io
+// ✅ Socket.io setup
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: "*", // ✅ Allow all origins
     methods: ["GET", "POST"],
-    credentials: true,
   },
 });
 
-// ✅ Socket.io logic
 io.on("connection", (socket) => {
   console.log("🟢 Client connected:", socket.id);
 
