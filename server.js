@@ -12,7 +12,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const allowedOrigins = ["http://localhost:3000", "https://chetlify.netlify.app"];
+const allowedOrigins = ["http://localhost:3000", "https://chatiepost.netlify.app"];
 
 app.use(cors({
   origin: (origin, callback) => {
