@@ -15,6 +15,10 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api/posts", require("./routes/posts"));
+
+
 // CORS
 const allowedOrigins = ["http://localhost:3000", "https://chatiepost.netlify.app"];
 app.use(cors({

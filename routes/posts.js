@@ -1,4 +1,3 @@
-// routes/posts.js
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
@@ -7,39 +6,39 @@ const Post = require("../models/Post");
 
 const router = express.Router();
 
-// Ensure "uploads" folder exists
-const uploadPath = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath);
-}
+// Make sure "uploads" directory exists
+const uploadDir = path.join(__dirname, "..", "uploads");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-// Multer setup
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = Date.now() + "-" + file.originalname;
-    cb(null, uniqueName);
-  },
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
+
 const upload = multer({ storage });
 
-// Upload route
 router.post("/upload", upload.single("image"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
     const { username } = req.body;
     const imageUrl = `/uploads/${req.file.filename}`;
 
-    const newPost = new Post({ username, imageUrl });
-    await newPost.save();
+    const post = new Post({ username, imageUrl });
+    await post.save();
 
-    res.status(201).json({ message: "Post saved", post: newPost });
+    res.status(201).json({ message: "Post uploaded", post });
   } catch (err) {
-    console.error("Upload Error:", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error(err);
+    res.status(500).json({ error: "Server error while uploading post" });
+  }
+});
+
+// 📸 Get all posts
+router.get("/", async (req, res) => {
+  try {
+    const posts = await Post.find().sort({ createdAt: -1 });
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
 
