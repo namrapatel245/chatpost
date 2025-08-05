@@ -1,37 +1,36 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
+const Post = require("../models/Post");
 
 const router = express.Router();
 
-// Ensure /uploads directory exists
-const uploadPath = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath);
-
-// Multer setup
+// Set up storage
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadPath),
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
+
 const upload = multer({ storage });
 
-// @route POST /api/posts/upload
-router.post("/upload", upload.single("image"), (req, res) => {
-  const { username } = req.body;
-  if (!req.file || !username) {
-    return res.status(400).json({ error: "Missing image or username" });
-  }
+// POST /api/posts/upload
+router.post("/upload", upload.single("image"), async (req, res) => {
+  try {
+    const { username } = req.body;
+    const imageUrl = `/uploads/${req.file.filename}`;
 
-  const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-  res.json({
-    message: "Image uploaded successfully!",
-    imageUrl,
-    uploadedBy: username,
-  });
+    const newPost = new Post({ username, imageUrl });
+    await newPost.save();
+
+    res.status(201).json({ message: "Image uploaded", post: newPost });
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ error: "Upload failed" });
+  }
 });
 
 module.exports = router;

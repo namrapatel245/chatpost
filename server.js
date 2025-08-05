@@ -6,12 +6,11 @@ const dotenv = require("dotenv");
 const { Server } = require("socket.io");
 const path = require("path");
 
-// Load env
 dotenv.config();
-
 const app = express();
 app.use(express.json());
 
+// Allow localhost and deployed frontend
 const allowedOrigins = ["http://localhost:3000", "https://chatiepost.netlify.app"];
 
 app.use(cors({
@@ -23,15 +22,14 @@ app.use(cors({
   credentials: true,
 }));
 
-// DB
+// MongoDB connect
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-})
-.then(() => console.log("✅ MongoDB Connected"))
-.catch((err) => console.error("❌ MongoDB Error:", err));
+}).then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Error:", err));
 
-// Serve uploaded images
+// Serve images
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
@@ -43,9 +41,11 @@ app.use("/api/users", userRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/posts", postRoutes);
 
-app.get("/", (req, res) => res.send("Server is running ✅"));
+app.get("/", (req, res) => {
+  res.send("✅ Chat server is running");
+});
 
-// Socket.IO
+// Socket setup
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -55,19 +55,17 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
+  console.log("🟢 Connected:", socket.id);
+
   socket.on("join-room", (roomId) => socket.join(roomId));
-  socket.on("send-message", (data) => {
-    const { roomId, message } = data;
+  socket.on("send-message", ({ roomId, message }) => {
     socket.to(roomId).emit("receive-message", message);
   });
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected:", socket.id);
-  });
+
+  socket.on("disconnect", () => console.log("🔴 Disconnected:", socket.id));
 });
 
-// 404 fallback
-app.use((req, res) => res.status(404).json({ error: "Not found" }));
+app.use((req, res) => res.status(404).json({ error: "Not Found" }));
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
