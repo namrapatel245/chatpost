@@ -9,14 +9,13 @@ const path = require("path");
 // Load .env
 dotenv.config();
 
-// Create Express app
 const app = express();
 app.use(express.json());
 
-// ✅ CORS: Allow Netlify and localhost
+// ✅ CORS SETUP — Bulletproof
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://chatiepost.netlify.app" // Your frontend domain
+  "https://chatiepost.netlify.app",
 ];
 
 app.use(cors({
@@ -24,11 +23,15 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn("❌ CORS blocked origin:", origin);
       callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
 }));
+
+// ✅ Allow preflight OPTIONS requests (for file upload / complex requests)
+app.options("*", cors());
 
 // ✅ MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -36,56 +39,57 @@ mongoose.connect(process.env.MONGO_URI, {
   useUnifiedTopology: true,
 })
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+  .catch((err) => console.error("❌ MongoDB Error:", err));
 
-// ✅ Serve uploaded images statically
+// ✅ Serve uploaded image files (if storing in local uploads folder)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ✅ API Routes
-const userRoutes = require("./routes/userRoutes");
-const messageRoutes = require("./routes/messageRoutes");
+// ✅ Routes
 const postRoutes = require("./routes/posts");
-
-app.use("/api/users", userRoutes);
-app.use("/api/messages", messageRoutes);
 app.use("/api/posts", postRoutes);
 
-// ✅ Test Route
+// You can also add userRoutes & messageRoutes here if needed
+// const userRoutes = require("./routes/userRoutes");
+// const messageRoutes = require("./routes/messageRoutes");
+// app.use("/api/users", userRoutes);
+// app.use("/api/messages", messageRoutes);
+
+// ✅ Default route
 app.get("/", (req, res) => {
   res.send("✅ Chat server is running");
 });
 
-// ✅ Setup server and socket.io
+// ✅ Handle 404 for unknown API routes
+app.use((req, res) => {
+  res.status(404).json({ error: "❌ API endpoint not found" });
+});
+
+// ✅ Create HTTP server and Socket.io
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
-  }
+  },
 });
 
-// ✅ Socket.io handlers
+// ✅ Socket.io logic
 io.on("connection", (socket) => {
-  console.log("🟢 New client connected:", socket.id);
+  console.log("🟢 Client connected:", socket.id);
 
   socket.on("join-room", (roomId) => {
     socket.join(roomId);
   });
 
-  socket.on("send-message", (data) => {
-    const { roomId, message } = data;
+  socket.on("send-message", ({ roomId, message }) => {
     socket.to(roomId).emit("receive-message", message);
   });
 
   socket.on("disconnect", () => {
     console.log("🔴 Client disconnected:", socket.id);
   });
-});
-
-// ✅ Fallback for unknown API routes
-app.use((req, res) => {
-  res.status(404).json({ error: "❌ API endpoint not found" });
 });
 
 // ✅ Start server

@@ -1,14 +1,17 @@
-// models/Post.js
 const mongoose = require("mongoose");
 
 const PostSchema = new mongoose.Schema({
-  username: {
+  userId: {
     type: String,
     required: true,
   },
-  imageUrl: {
-    type: String, // e.g., "/uploads/filename.jpg"
-    required: true,
+  image: {
+    data: Buffer,           // Binary image data
+    contentType: String,    // e.g., "image/jpeg"
+  },
+  caption: {
+    type: String,
+    default: "",
   },
   createdAt: {
     type: Date,
